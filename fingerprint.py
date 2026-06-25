@@ -226,6 +226,7 @@ class FingerprintIndex:
 
         top = scored[:top_k]
         match = None
+        winning_histogram = None
         if top:
             top_score = top[0]["score"]
             runner_up = top[1]["score"] if len(top) > 1 else 0
@@ -234,6 +235,9 @@ class FingerprintIndex:
                 "score": top_score,
                 "runner_up_ratio": (top_score / runner_up) if runner_up > 0 else float("inf"),
             }
+            # full offset -> vote-count histogram for the winning song, used to
+            # draw the "alignment spike" plot (one tall bar among a flat noise floor)
+            winning_histogram = offset_votes[top[0]["song_id"]]
 
         return {
             "timing": timing,
@@ -241,6 +245,7 @@ class FingerprintIndex:
             "match": match,
             "spectrogram": Sxx_db,
             "peaks": peaks,
+            "winning_histogram": winning_histogram,
         }
 
     def is_confident(self, result, min_score=15, min_ratio=1.5):
