@@ -99,6 +99,47 @@ def constellation_fig(peaks):
     return fig
 
 
+def offset_histogram_fig(hist_dict):
+    """
+    Bar chart of vote-count per time offset for the winning song - this is
+    the 'alignment spike' plot: one thin tall spike (the true offset, where
+    every matched hash agrees) standing far above a flat noise floor of
+    chance matches scattered at random offsets, with a diagonal label
+    pointing at the spike (mirrors the reference demo video).
+    """
+    fig, ax = plt.subplots(figsize=(5, 3), dpi=120)
+    fig.patch.set_facecolor("#0b0f10")
+    ax.set_facecolor("#0b0f10")
+
+    if hist_dict:
+        offsets = np.array(sorted(hist_dict.keys()))
+        counts = np.array([hist_dict[o] for o in offsets])
+        best_idx = np.argmax(counts)
+        x_span = max(offsets.max() - offsets.min(), 1)
+
+        # flat noise floor: every non-winning offset, drawn as a thin near-zero line
+        ax.vlines(offsets, 0, counts, color="#3a7ca5", linewidth=1, alpha=0.6)
+        # the spike itself: one thin bright vertical line, much taller than the rest
+        ax.vlines(offsets[best_idx], 0, counts[best_idx], color="#ffa53e", linewidth=2)
+
+        ax.annotate(
+            f"{counts[best_idx]:,} hashes\nalign here",
+            xy=(offsets[best_idx], counts[best_idx]),
+            xytext=(offsets[best_idx] + x_span * 0.12, counts[best_idx] * 0.62),
+            color="#ffa53e", fontsize=8,
+            arrowprops=dict(arrowstyle="-", color="#ffa53e", linewidth=1),
+        )
+        ax.set_ylim(0, counts[best_idx] * 1.15)
+
+    ax.set_xlabel("offset (frames)", color="white")
+    ax.set_ylabel("# hashes", color="white")
+    ax.tick_params(colors="white")
+    for spine in ax.spines.values():
+        spine.set_color("white")
+    fig.tight_layout()
+    return fig
+
+
 def save_upload_to_tmp(uploaded_file):
     suffix = os.path.splitext(uploaded_file.name)[1] or ".wav"
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
@@ -197,6 +238,21 @@ with tab_identify:
                     st.progress(min(c["score"] / max_score, 1.0) if max_score else 0, text=c["name"])
                 with scol:
                     st.write(c["score"])
+
+        # --- offset histogram: the alignment spike ---------------------------
+        st.markdown("**STEP 3 · THE PROOF**")
+        st.markdown("##### The alignment spike")
+        if result["winning_histogram"] and result["match"]:
+            best_count = result["match"]["score"]
+            st.write(
+                f"Every matched hash votes for a time offset (database frame minus query frame). "
+                f"Chance matches scatter votes randomly, forming a flat noise floor. A genuine match "
+                f"makes them converge: **{best_count:,} hashes agreed on a single offset**. "
+                f"That spike cannot be a coincidence."
+            )
+            st.pyplot(offset_histogram_fig(result["winning_histogram"]), use_container_width=True)
+        else:
+            st.caption("No matching hashes were found, so no offset histogram could be built.")
 
         # --- spectrogram + constellation -------------------------------------
         st.markdown("**STEP 1 · FEATURE EXTRACTION**")
